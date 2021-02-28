@@ -3,6 +3,7 @@ import Web3 from 'web3'
 import Election from './abis/Election.json'
 import Navbar from './Navbar'
 import Main from './Main'
+import Voter from './Voter'
 import './App.css'
 
 class App extends Component {
@@ -16,6 +17,8 @@ class App extends Component {
     const web3 = window.web3
 
     const accounts = await web3.eth.getAccounts()
+    this.setState({ accounts })
+
     this.setState({ account: accounts[0] })
 
     const networkId = await web3.eth.net.getId()
@@ -26,8 +29,22 @@ class App extends Component {
       const election = new web3.eth.Contract(Election.abi, electionData.address)
       this.setState({ election })
 
-      let candidates = await election.methods.candidates(this.state.account).call();
+
+      let candidatesCount = await election.methods.candidatesCount().call();
+      this.setState({ candidatesCount })
+
+      var candidates = [];
+      var i;
+      for(i=0; i<candidatesCount;i++){
+        candidates[i] = await election.methods.candidates(i+1).call();
+      }
       this.setState({ candidates })
+
+      var voter = new Map()
+      voter[this.state.account] = await election.methods.voters(this.state.account).call()
+      this.setState({ voter })
+
+      
     }else {
       window.alert('Election contract not deployed to detected network.')
     }
@@ -49,11 +66,18 @@ class App extends Component {
     }
   }
 
+
   vote = (candidateId) => {
-    this.setState({ loading:true })
-    this.state.election.methods.vote(candidateId).send({ from: this.state.account }).on('transactionHash', (hash) => {
+    if(this.state.voter[this.state.account]){   
+      this.setState( {msg : "Already Voted"})
+    }
+    else{ 
+      this.state.voter[this.state.account] = true;
+      this.setState({ loading:true })
+      this.state.election.methods.vote(candidateId).send({ from: this.state.account }).on('transactionHash', (hash) => {
       this.setState({ loading:false })
-    })
+      })
+     }
   }
 
   constructor(props) {
@@ -71,8 +95,10 @@ class App extends Component {
       content = <p id="loader" className="text-center">Loading...</p>
     } else {
       content = <Main 
+      candidatesCount={this.state.candidatesCount}
       candidates={this.state.candidates}
       vote={this.vote}
+      msg = {this.msg}
       />
     }
 

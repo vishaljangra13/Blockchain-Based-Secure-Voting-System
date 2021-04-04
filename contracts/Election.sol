@@ -1,5 +1,4 @@
 pragma solidity ^0.5.0;
-
 /**
  * The Election contract does this and that...
  */
@@ -41,9 +40,7 @@ contract Election {
 
     	require (!voters[msg.sender], "Already voted");
 
-    	
     	require (_candidateId > 0 && _candidateId <= candidatesCount, "Invalid candidate");
-
 
     	require (goingon, "Election ended");
 
@@ -53,7 +50,6 @@ contract Election {
 
     	emit votedEvent(_candidateId);
   
-    	
     }
     
 }

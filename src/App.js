@@ -4,8 +4,14 @@ import Election from './abis/Election.json'
 import Navbar from './Navbar'
 import Main from './Main'
 import Login from './Login'
+import OtpVerifier from './OtpVerifier'
 import Result from './Result'
+import firebase from './firebase.js'
 import './App.css'
+
+
+// ctd - Comment when testing is done
+// utd - Uncomment when testing is done
 
 class App extends Component {
 
@@ -46,8 +52,13 @@ class App extends Component {
       voter[this.state.account] = await election.methods.voters(this.state.account).call()
       this.setState({ voter })
 
-      this.setState({ goingon : true})
+      var saved_countdown = localStorage.getItem('saved_countdown');
+      if(saved_countdown > 0)
+        this.setState({ goingon : true})
+      else
+        this.setState({ goingon : false})
 
+      this.setState({ aadharVerified:false })
       
     }else {
       window.alert('Election contract not deployed to detected network.')
@@ -156,10 +167,21 @@ class App extends Component {
   }
 
   startTimer = () => {
-    var seconds = localStorage.getItem("seconds");
-    if(!seconds){
-      localStorage.setItem("seconds", JSON.stringify(180));
-      this.setState({ seconds })
+
+    //ctd
+    localStorage.setItem('saved_countdown', 60);
+
+    var saved_countdown = localStorage.getItem('saved_countdown');
+
+    console.log(saved_countdown)
+
+    if(saved_countdown == null) {
+
+      var new_countdown = 10;
+      this.setState({ seconds : new_countdown })
+      localStorage.setItem('saved_countdown', new_countdown);
+    }else {
+        this.setState({ seconds : saved_countdown })
     }
 
     if (this.state.timer == 0 && this.state.seconds > 0) {
@@ -169,6 +191,8 @@ class App extends Component {
 
   countDown = () => {
     var seconds = this.state.seconds - 1;
+
+    localStorage.setItem('saved_countdown', seconds);
     this.secondsToTime(seconds)
     this.setState({ seconds })
     this.setState({ time: this.state.hms });
@@ -182,6 +206,7 @@ class App extends Component {
 
   end = () => {
       console.log("Election Ended")
+      this.loadBlockchainData()
       this.setState({goingon:false})
   }
 
@@ -192,14 +217,55 @@ class App extends Component {
     console.log(this.state.aadharNumber)
   }
 
-  login = () => {
+  otp = () => {
+      let recaptcha = new firebase.auth.RecaptchaVerifier('recaptcha');
+  
+      const that = this;
+      firebase.database().ref(this.state.aadharNumber).on('value',(snap)=>{
+
+        let number = snap.val();
+        console.log(number);
+        
+        firebase.auth().signInWithPhoneNumber(number, recaptcha).then(function(e){
+          let code = prompt('Enter the otp','');
+          if(code == null) return;
+
+
+          e.confirm(code).then(function(result){
+
+            that.setState({ loggedin:true });
+            that.setState({ captcha : false });
+            console.log(this.state.loggedin)
+            console.log(result.user, 'user');
+            // document.querySelector('label').textContent=result.user.phoneNumber + " Number verified";
+
+          }).catch((error)=>{
+            console.log(error)
+          })
+        })
+      });
+
+  }
+
+  async login () {
       var validator = require('aadhaar-validator')
       if(validator.isValidNumber(this.state.aadharNumber)){
           console.log("Aadhar Number :")
-          this.setState({ loggedin:true });
+
+          //utd
+          let ot = await this.otp();
+
+          //ctd
+          //this.setState({ loggedin:true });
+
+          //ctd
+          //this.setState({ captcha : false })
+
+          this.setState({ aadharVerified:true });
       }
-      
   }
+
+  
 
   constructor(props) {
     super(props)
@@ -210,7 +276,6 @@ class App extends Component {
       loggedin: false,
       goingon: true,
       time: {},
-      seconds: 80,
       timer : 0,
       highlight1 : "",
       highlight2 : "",
@@ -221,7 +286,9 @@ class App extends Component {
       isClicked2 : false,
       isClicked3 : false,
       isClicked4 : false,
-      isClicked5 : false
+      isClicked5 : false,
+      captcha : true
+
     }
 
     this.login = this.login.bind(this);
@@ -232,8 +299,11 @@ class App extends Component {
     let content
     if(this.state.loading) {
       content = <p id="loader" className="text-center">Loading...</p>
-    } else {
-      if(this.state.loggedin && this.state.goingon){
+    } 
+    else if(this.state.aadharVerified && this.state.goingon && !this.state.loggedin){
+        content = <OtpVerifier />
+    }
+    else if(this.state.loggedin && this.state.goingon){
         content = <Main 
         candidatesCount={this.state.candidatesCount}
         candidates={this.state.candidates}
@@ -248,28 +318,36 @@ class App extends Component {
         highlight5 = {this.state.highlight5}
 
         />
-      }
-      else if(this.state.goingon){
+    }
+    else if(this.state.goingon){
         content = <Login
         login = {this.login} 
         check = {this.check}
         />
-      }else{
-        content = <Result 
-        candidates={this.state.candidates}
-        />
-      }
+    }else{
+      content = <Result 
+      candidates={this.state.candidates}
+      />
     }
 
     return (
       <div>
         <Navbar/>
         <div className="container-fluid mt-5">
+          { this.state.captcha && (
+            <div>
+              <div id="recaptcha"></div>
+            </div>
+          )}
+          
           <div className="row">
             <main role="main" className="col-lg-12 ml-auto mr-auto" style={{ maxWidth: '1000px' }}>
               <div className="content mr-auto ml-auto">
 
-              <p class="timer">Election Ends in {this.state.time.m}m {this.state.time.s}s</p>
+              { this.state.goingon && (
+                <p class="timer">Election Ends in {this.state.time.m}m {this.state.time.s}s</p>
+              )}
+              
                 {content}
 
               </div>

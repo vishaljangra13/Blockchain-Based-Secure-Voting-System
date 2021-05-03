@@ -12,7 +12,7 @@ class Main extends Component {
 	render(){
 		return(
 			<div>
-				<p> Double Click Logo to select </p>
+				<h3> Double Click On Logo to select </h3>
 				<div class="card-deck">
 
 				 	<img class={[this.props.highlight1, "card"].join(' ')} src={bjp} alt="BJP"

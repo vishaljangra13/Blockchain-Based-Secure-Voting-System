@@ -169,7 +169,7 @@ class App extends Component {
   startTimer = () => {
 
     //ctd
-    localStorage.setItem('saved_countdown', 60);
+    localStorage.setItem('saved_countdown', 120);
 
     var saved_countdown = localStorage.getItem('saved_countdown');
 
